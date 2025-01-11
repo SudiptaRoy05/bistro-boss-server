@@ -30,6 +30,7 @@ async function run() {
         const usersCollection = database.collection('users');
         const reviewCollection = database.collection('reviews');
         const cartCollection = database.collection('carts')
+        const paymentCollection = database.collection('payments')
 
         // jwt 
         app.post('/jwt', async (req, res) => {
@@ -188,6 +189,30 @@ async function run() {
             res.send({
                 clientSecret: paymentIntent.client_secret
             })
+        })
+
+        app.get('/payments/:email', verifyToken, async (req, res) => {
+            const email = req.params.email
+            const query = { email: email }
+            if (req.params.email !== req.decoded.email) {
+                return res.status(403).send({ message: "forbidden access " })
+            }
+            const result = await paymentCollection.find(query).toArray()
+            res.send(result)
+        })
+
+        app.post('/payments', async (req, res) => {
+            const payment = req.body;
+            const paymentResult = await paymentCollection.insertOne(payment);
+            const query = {
+                _id: {
+                    $in: payment.cartIds.map(id => new ObjectId(id))
+                }
+            }
+            const deleteResult = await cartCollection.deleteMany(query);
+            console.log(payment)
+            console.log({ paymentResult, deleteResult })
+            res.send({ paymentResult, deleteResult });
         })
 
     } finally {
